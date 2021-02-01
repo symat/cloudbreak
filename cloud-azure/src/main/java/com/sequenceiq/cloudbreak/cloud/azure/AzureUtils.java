@@ -122,10 +122,6 @@ public class AzureUtils {
         sb.delete(j, sb.length());
     }
 
-    public String getLoadBalancerId(String stackName) {
-        return String.format("%s%s", stackName, "lb");
-    }
-
     public String getPrivateInstanceId(String stackName, String groupName, String privateId) {
         return String.format("%s%s%s", stackName, getGroupName(groupName), privateId);
     }
@@ -443,6 +439,33 @@ public class AzureUtils {
         } catch (RuntimeException e) {
             LOGGER.error("Error occured while waiting for public ip deletion: {}", e.getMessage(), e);
             throw new CloudbreakServiceException("Error occured while waiting for public ip deletion: " + e.getMessage(), e);
+        }
+    }
+
+    @Retryable(backoff = @Backoff(delay = 1000, multiplier = 2, maxDelay = 10000), maxAttempts = 5)
+    public void deleteLoadBalancers(AzureClient azureClient, String resourceGroupName, Collection<String> loadBalancerNames) {
+        LOGGER.info("Deleting load balancers: {}", loadBalancerNames);
+        try {
+            List<Completable> deleteCompletables = new ArrayList<>();
+            for (String loadBalancerName : loadBalancerNames) {
+                deleteCompletables.add(azureClient.deleteLoadBalancerAsync(resourceGroupName, loadBalancerName)
+                        .doOnError(throwable -> {
+                            LOGGER.error("Error happened on azure load balancer delete: {}", loadBalancerName, throwable);
+                        })
+                        .subscribeOn(Schedulers.io()));
+            }
+            Completable.mergeDelayError(deleteCompletables)
+                    .doOnCompleted(() -> {
+                        LOGGER.debug("Azure load balancers successfully deleted.");
+                    })
+                    .await();
+        } catch (CompositeException e) {
+            String errorMessages = e.getExceptions().stream().map(Throwable::getMessage).collect(Collectors.joining());
+            LOGGER.error("Error(s) occurred while waiting for load balancer deletion: {}", errorMessages);
+            throw new CloudbreakServiceException("Error(s) occurred while waiting for load balancer deletion: " + errorMessages, e);
+        } catch (RuntimeException e) {
+            LOGGER.error("Error occurred  while waiting for load balancer deletion: {}", e.getMessage(), e);
+            throw new CloudbreakServiceException("Error occurred while waiting for load balancer deletion: " + e.getMessage(), e);
         }
     }
 

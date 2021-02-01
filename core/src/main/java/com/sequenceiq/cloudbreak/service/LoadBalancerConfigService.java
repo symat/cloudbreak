@@ -44,6 +44,7 @@ import com.sequenceiq.environment.api.v1.environment.model.response.DetailedEnvi
 import com.sequenceiq.environment.api.v1.environment.model.response.EnvironmentNetworkResponse;
 
 import static com.sequenceiq.cloudbreak.common.mappable.CloudPlatform.AWS;
+import static com.sequenceiq.cloudbreak.common.mappable.CloudPlatform.AZURE;
 
 @Service
 public class LoadBalancerConfigService {
@@ -230,7 +231,14 @@ public class LoadBalancerConfigService {
             if (StringUtils.isNotEmpty(subnetId)) {
                 LOGGER.debug("Found selected stack subnet {}", subnetId);
                 Optional<CloudSubnet> selectedSubnet = subnetSelector.findSubnetById(envNetwork.getSubnetMetas(), subnetId);
-                if (selectedSubnet.isPresent()) {
+
+                // "noPublicIp" is an Azure only option that is used to set the network to private or public, it is not
+                // set on AWS networks. So, we check for it first, then fall back to AWS.
+                if (params.get("noPublicIp") != null) {
+                    boolean noPublicIp = (boolean) params.get("noPublicIp");
+                    LOGGER.debug("Subnet {} type {}", subnetId, noPublicIp ? "private" : "public");
+                    return privateType == noPublicIp;
+                } else if (selectedSubnet.isPresent()) {
                     LOGGER.debug("Subnet {} type {}", subnetId, selectedSubnet.get().isPrivateSubnet() ? "private" : "public");
                     return privateType == selectedSubnet.get().isPrivateSubnet();
                 }
@@ -283,6 +291,7 @@ public class LoadBalancerConfigService {
         Set<InstanceGroup> knoxGatewayInstanceGroups = stack.getInstanceGroups().stream()
             .filter(ig -> knoxGatewayGroupNames.contains(ig.getGroupName()))
             .collect(Collectors.toSet());
+        validateKnoxForAzure(knoxGatewayInstanceGroups, stack.getCloudPlatform());
         if (!knoxGatewayInstanceGroups.isEmpty()) {
             LOGGER.info("Knox gateway instance found; enabling Knox load balancer configuration.");
             knoxTargetGroup = new TargetGroup();
@@ -297,6 +306,13 @@ public class LoadBalancerConfigService {
             }
         }
         return Optional.ofNullable(knoxTargetGroup);
+    }
+
+    private void validateKnoxForAzure(Set<InstanceGroup> knoxGatewayInstanceGroups, String cloudPlatform) {
+        if (AZURE.equalsIgnoreCase(cloudPlatform) && knoxGatewayInstanceGroups.size() > 1) {
+            LOGGER.warn("For Azure load balancers, Knox must be defined in a single instance group. Load balancers will not be created.");
+            knoxGatewayInstanceGroups.clear();
+        }
     }
 
     private LoadBalancer createLoadBalancerIfNotExists(Set<LoadBalancer> loadBalancers, LoadBalancerType type, Stack stack) {
