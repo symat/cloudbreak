@@ -32,6 +32,7 @@ import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.CLOUDERA_IN
 import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.DATAHUB_AWS_AUTOSCALING;
 import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.DATAHUB_AZURE_AUTOSCALING;
 import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.FMS_FREEIPA_BATCH_CALL;
+import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.CDP_DATALAKE_BACKUP_ON_UPGRADE;
 import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.LOCAL_DEV;
 import static com.sequenceiq.cloudbreak.auth.altus.model.Entitlement.CDP_CB_AZURE_DISK_SSE_WITH_CMK;
 
@@ -187,6 +188,10 @@ public class EntitlementService {
 
     public boolean publicEndpointAccessGatewayEnabled(String accountId) {
         return isEntitlementRegistered(accountId, CDP_PUBLIC_ENDPOINT_ACCESS_GATEWAY);
+    }
+
+    public boolean isDatalakeBackupOnUpgradeEnabled(String accountId) {
+        return isEntitlementRegistered(accountId, CDP_DATALAKE_BACKUP_ON_UPGRADE);
     }
 
     public boolean isExperienceDeletionEnabled(String accountId) {

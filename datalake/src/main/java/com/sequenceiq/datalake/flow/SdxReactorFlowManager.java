@@ -2,6 +2,7 @@ package com.sequenceiq.datalake.flow;
 
 import static com.sequenceiq.datalake.flow.create.SdxCreateEvent.STORAGE_VALIDATION_WAIT_EVENT;
 import static com.sequenceiq.datalake.flow.datalake.upgrade.DatalakeUpgradeEvent.DATALAKE_UPGRADE_EVENT;
+import static com.sequenceiq.datalake.flow.datalake.upgrade.DatalakeUpgradeEvent.DATALAKE_UPGRADE_FLOW_CHAIN_EVENT;
 import static com.sequenceiq.datalake.flow.delete.SdxDeleteEvent.SDX_DELETE_EVENT;
 import static com.sequenceiq.datalake.flow.diagnostics.SdxCmDiagnosticsEvent.SDX_CM_DIAGNOSTICS_COLLECTION_EVENT;
 import static com.sequenceiq.datalake.flow.diagnostics.SdxDiagnosticsEvent.SDX_DIAGNOSTICS_COLLECTION_EVENT;
@@ -17,12 +18,19 @@ import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 
-import com.sequenceiq.datalake.flow.dr.backup.event.DatalakeTriggerBackupEvent;
+
+import com.google.common.base.Strings;
+import com.sequenceiq.cloudbreak.common.exception.BadRequestException;
+import com.sequenceiq.common.api.backup.response.BackupResponse;
+import com.sequenceiq.common.api.telemetry.response.TelemetryResponse;
+import com.sequenceiq.datalake.service.EnvironmentClientService;
+import com.sequenceiq.environment.api.v1.environment.model.response.DetailedEnvironmentResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.sequenceiq.cloudbreak.auth.ThreadBasedUserCrnProvider;
+import com.sequenceiq.cloudbreak.auth.altus.EntitlementService;
 import com.sequenceiq.cloudbreak.common.event.Acceptable;
 import com.sequenceiq.cloudbreak.exception.CloudbreakApiException;
 import com.sequenceiq.cloudbreak.exception.FlowNotAcceptedException;
@@ -34,10 +42,12 @@ import com.sequenceiq.datalake.flow.delete.event.SdxDeleteStartEvent;
 import com.sequenceiq.datalake.flow.diagnostics.event.SdxCmDiagnosticsCollectionEvent;
 import com.sequenceiq.datalake.flow.diagnostics.event.SdxDiagnosticsCollectionEvent;
 import com.sequenceiq.datalake.flow.dr.backup.event.DatalakeDatabaseBackupStartEvent;
+import com.sequenceiq.datalake.flow.dr.backup.event.DatalakeTriggerBackupEvent;
 import com.sequenceiq.datalake.flow.dr.restore.event.DatalakeDatabaseRestoreStartEvent;
 import com.sequenceiq.datalake.flow.repair.event.SdxRepairStartEvent;
 import com.sequenceiq.datalake.flow.start.event.SdxStartStartEvent;
 import com.sequenceiq.datalake.flow.stop.event.SdxStartStopEvent;
+import com.sequenceiq.datalake.flow.datalake.upgrade.event.DatalakeUpgradeFlowChainStartEvent;
 import com.sequenceiq.datalake.settings.SdxRepairSettings;
 import com.sequenceiq.flow.api.model.FlowIdentifier;
 import com.sequenceiq.flow.api.model.FlowType;
@@ -63,6 +73,12 @@ public class SdxReactorFlowManager {
     @Inject
     private ErrorHandlerAwareReactorEventFactory eventFactory;
 
+    @Inject
+    private EntitlementService entitlementService;
+
+    @Inject
+    private EnvironmentClientService environmentClientService;
+
     public FlowIdentifier triggerSdxCreation(SdxCluster cluster) {
         LOGGER.info("Trigger Datalake creation for: {}", cluster);
         String selector = STORAGE_VALIDATION_WAIT_EVENT.event();
@@ -87,10 +103,15 @@ public class SdxReactorFlowManager {
 
     public FlowIdentifier triggerDatalakeRuntimeUpgradeFlow(SdxCluster cluster, String imageId, SdxUpgradeReplaceVms replaceVms) {
         LOGGER.info("Trigger Datalake runtime upgrade for: {} with imageId: {} and replace vm param: {}", cluster, imageId, replaceVms);
-        String selector = DATALAKE_UPGRADE_EVENT.event();
         String userId = ThreadBasedUserCrnProvider.getUserCrn();
-        return notify(selector, new DatalakeUpgradeStartEvent(selector, cluster.getId(),
+        if (entitlementService.isDatalakeBackupOnUpgradeEnabled(ThreadBasedUserCrnProvider.getAccountId())) {
+            return notify(DATALAKE_UPGRADE_FLOW_CHAIN_EVENT.event(),
+                    new DatalakeUpgradeFlowChainStartEvent(DATALAKE_UPGRADE_FLOW_CHAIN_EVENT.event(), cluster.getId(),
+                    userId, imageId, replaceVms.getBooleanValue(), getBackupLocation(cluster.getEnvName())));
+        } else {
+        return notify(DATALAKE_UPGRADE_EVENT.event(), new DatalakeUpgradeStartEvent(DATALAKE_UPGRADE_EVENT.event(), cluster.getId(),
                 userId, imageId, replaceVms.getBooleanValue()));
+        }
     }
 
     public FlowIdentifier triggerSdxStartFlow(SdxCluster cluster) {
@@ -163,5 +184,21 @@ public class SdxReactorFlowManager {
             throw new CloudbreakApiException(e.getMessage());
         }
 
+    }
+
+    private String getBackupLocation(String datalakeName) {
+        String backupLocation = null;
+        DetailedEnvironmentResponse detailedEnvironmentResponse = environmentClientService.getByName(datalakeName);
+        BackupResponse backupResponse = detailedEnvironmentResponse.getBackup();
+        TelemetryResponse telemetryResponse =  detailedEnvironmentResponse.getTelemetry();
+        if (backupResponse != null && backupResponse.getStorageLocation() != null) {
+            backupLocation = backupResponse.getStorageLocation();
+        } else if (telemetryResponse != null && telemetryResponse.getLogging() != null) {
+            backupLocation = telemetryResponse.getLogging().getStorageLocation();
+        }
+        if (Strings.isNullOrEmpty(backupLocation)) {
+            throw new BadRequestException("Backup Location is empty. Datalake backup is not triggered.");
+        }
+        return backupLocation;
     }
 }
