@@ -29,7 +29,7 @@ public class SdxStartFlowConfig extends AbstractFlowConfiguration<SdxStartState,
             .event(SdxStartEvent.SDX_START_RDS_FINISHED_EVENT).defaultFailureEvent()
 
             .from(SDX_START_SYNC_STATE).to(SDX_START_START_STATE)
-            .event(SdxStartEvent.SDX_SYNC_FINISHED_EVENT).noFailureEvent()
+            .event(SdxStartEvent.SDX_SYNC_FINISHED_EVENT).failureEvent(SdxStartEvent.SDX_SYNC_FAILED_EVENT)
 
             .from(SDX_START_START_STATE).to(SDX_START_IN_PROGRESS_STATE)
             .event(SdxStartEvent.SDX_START_IN_PROGRESS_EVENT).defaultFailureEvent()

@@ -21,8 +21,6 @@ import com.sequenceiq.datalake.entity.DatalakeStatusEnum;
 import com.sequenceiq.datalake.flow.SdxContext;
 import com.sequenceiq.datalake.flow.SdxEvent;
 import com.sequenceiq.datalake.flow.SdxFailedEvent;
-import com.sequenceiq.datalake.flow.sync.event.SdxSyncSuccessEvent;
-import com.sequenceiq.datalake.flow.sync.event.SdxSyncWaitRequest;
 import com.sequenceiq.datalake.flow.stop.event.RdsStopSuccessEvent;
 import com.sequenceiq.datalake.flow.stop.event.RdsWaitingToStopRequest;
 import com.sequenceiq.datalake.flow.stop.event.SdxStartStopEvent;
@@ -30,6 +28,9 @@ import com.sequenceiq.datalake.flow.stop.event.SdxStopAllDatahubRequest;
 import com.sequenceiq.datalake.flow.stop.event.SdxStopFailedEvent;
 import com.sequenceiq.datalake.flow.stop.event.SdxStopSuccessEvent;
 import com.sequenceiq.datalake.flow.stop.event.SdxStopWaitRequest;
+import com.sequenceiq.datalake.flow.sync.event.SdxSyncFailedEvent;
+import com.sequenceiq.datalake.flow.sync.event.SdxSyncSuccessEvent;
+import com.sequenceiq.datalake.flow.sync.event.SdxSyncWaitRequest;
 import com.sequenceiq.datalake.service.AbstractSdxAction;
 import com.sequenceiq.datalake.service.sdx.status.SdxStatusService;
 import com.sequenceiq.datalake.service.sdx.stop.SdxStopService;
@@ -204,28 +205,33 @@ public class SdxStopActions {
 
     @Bean(name = "SDX_STOP_FAILED_STATE")
     public Action<?, ?> failedAction() {
-        return new AbstractSdxAction<>(SdxFailedEvent.class) {
+        return getFailedAction(SdxStopFailedEvent.class, "SDX stop failed");
+    }
+
+    @Bean(name = "SDX_STOP_SYNC_FAILED_STATE")
+    public Action<?, ?> syncFailedAction() {
+        return getFailedAction(SdxSyncFailedEvent.class, "SDX sync failed during stop");
+    }
+
+    private <T extends SdxFailedEvent> Action<?, ?> getFailedAction(Class<T> failedEventClass, final String statusReason) {
+        return new AbstractSdxAction<>(failedEventClass) {
             @Override
             protected SdxContext createFlowContext(FlowParameters flowParameters, StateContext<FlowState, FlowEvent> stateContext,
-                    SdxFailedEvent payload) {
+                    T payload) {
                 return SdxContext.from(flowParameters, payload);
             }
 
             @Override
-            protected void doExecute(SdxContext context, SdxFailedEvent payload, Map<Object, Object> variables) throws Exception {
+            protected void doExecute(SdxContext context, T payload, Map<Object, Object> variables) throws Exception {
                 Exception exception = payload.getException();
                 DatalakeStatusEnum failedStatus = DatalakeStatusEnum.STOP_FAILED;
                 LOGGER.info("Update SDX status to {} for resource: {}", failedStatus, payload.getResourceId(), exception);
-                String statusReason = "SDX stop failed";
-                if (exception.getMessage() != null) {
-                    statusReason = exception.getMessage();
-                }
-                sdxStatusService.setStatusForDatalakeAndNotify(failedStatus, statusReason, payload.getResourceId());
+                sdxStatusService.setStatusForDatalakeAndNotify(failedStatus, Optional.of(exception.getMessage()).orElse(statusReason), payload.getResourceId());
                 sendEvent(context, SDX_STOP_FAILED_HANDLED_EVENT.event(), payload);
             }
 
             @Override
-            protected Object getFailurePayload(SdxFailedEvent payload, Optional<SdxContext> flowContext, Exception ex) {
+            protected Object getFailurePayload(T payload, Optional<SdxContext> flowContext, Exception ex) {
                 return null;
             }
         };
