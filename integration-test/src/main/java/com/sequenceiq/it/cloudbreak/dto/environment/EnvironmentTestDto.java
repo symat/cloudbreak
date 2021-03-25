@@ -17,6 +17,7 @@ import javax.inject.Inject;
 
 import com.sequenceiq.cloudbreak.common.mappable.CloudPlatform;
 import com.sequenceiq.common.api.telemetry.request.TelemetryRequest;
+import com.sequenceiq.common.api.type.Tunnel;
 import com.sequenceiq.environment.api.v1.environment.endpoint.EnvironmentEndpoint;
 import com.sequenceiq.environment.api.v1.environment.model.base.CloudStorageValidation;
 import com.sequenceiq.environment.api.v1.environment.model.base.IdBrokerMappingSource;
@@ -99,7 +100,13 @@ public class EnvironmentTestDto
                 .withCloudplatform(getCloudPlatform().toString())
                 .withIdBrokerMappingSource(IdBrokerMappingSource.MOCK)
                 .withResourceGroup(getResourceGroupUsage(), getResourceGroupName())
+                .withDirectTunnel()
                 .withCloudStorageValidation(CloudStorageValidation.ENABLED);
+    }
+
+    public EnvironmentTestDto withDirectTunnel() {
+        getRequest().setTunnel(Tunnel.DIRECT);
+        return this;
     }
 
     public EnvironmentTestDto withCreateFreeIpa(Boolean create) {

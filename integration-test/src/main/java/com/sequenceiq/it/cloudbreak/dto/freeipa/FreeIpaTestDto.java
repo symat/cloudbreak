@@ -21,6 +21,9 @@ import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.request.authentication.S
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.request.environment.placement.PlacementSettingsV4Request;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.request.instancegroup.InstanceGroupV4Request;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.request.network.NetworkV4Request;
+import com.sequenceiq.cloudbreak.ccm.endpoint.ServiceFamilies;
+import com.sequenceiq.cloudbreak.client.HttpClientConfig;
+import com.sequenceiq.common.api.type.Tunnel;
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.FreeIpaServerRequest;
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.common.Status;
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.common.image.ImageSettingsRequest;
@@ -41,6 +44,8 @@ import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.common.security.StackAu
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.create.CreateFreeIpaRequest;
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.describe.DescribeFreeIpaResponse;
 import com.sequenceiq.freeipa.api.v1.freeipa.stack.model.list.ListFreeIpaResponse;
+import com.sequenceiq.freeipa.client.FreeIpaClientBuilder;
+import com.sequenceiq.freeipa.client.FreeIpaClientFactoryUtil;
 import com.sequenceiq.it.cloudbreak.FreeIpaClient;
 import com.sequenceiq.it.cloudbreak.MicroserviceClient;
 import com.sequenceiq.it.cloudbreak.Prototype;
@@ -58,6 +63,7 @@ import com.sequenceiq.it.cloudbreak.dto.PlacementSettingsTestDto;
 import com.sequenceiq.it.cloudbreak.dto.StackAuthenticationTestDto;
 import com.sequenceiq.it.cloudbreak.dto.environment.EnvironmentTestDto;
 import com.sequenceiq.it.cloudbreak.dto.telemetry.TelemetryTestDto;
+import com.sequenceiq.it.cloudbreak.exception.TestFailException;
 import com.sequenceiq.it.cloudbreak.search.Searchable;
 
 @Prototype
@@ -289,6 +295,24 @@ public class FreeIpaTestDto extends AbstractFreeIpaTestDto<CreateFreeIpaRequest,
     public FreeIpaTestDto withGatewayPort(Integer port) {
         getRequest().setGatewayPort(port);
         return this;
+    }
+
+    public com.sequenceiq.freeipa.client.FreeIpaClient createIpaServerClient() throws Exception {
+        DescribeFreeIpaResponse freeIpaResponse = getResponse();
+        String freeipaIp = freeIpaResponse.getFreeIpa().getServerIp().iterator().next();
+        String freeipaHost = freeIpaResponse.getFreeIpa().getFreeIpaHost();
+        Integer gatewayPort = Optional.ofNullable(freeIpaResponse.getFreeIpa().getFreeIpaPort()).
+                orElse(ServiceFamilies.GATEWAY.getDefaultPort());
+        String adminPassword = getRequest().getFreeIpa().getAdminPassword();
+        Tunnel tunnel = getTestContext().given(EnvironmentTestDto.class).getResponse().getTunnel();
+        HttpClientConfig httpClientConfig = FreeIpaClientFactoryUtil.getHttpClientConfig(freeipaIp);
+        if (tunnel.equals(Tunnel.DIRECT)) {
+            FreeIpaClientBuilder directFreeipaClientBuilder = FreeIpaClientFactoryUtil.getDirectFreeipaClientBuilder(adminPassword, httpClientConfig,
+                    gatewayPort, freeipaHost, getTestContext().getTracer());
+            return directFreeipaClientBuilder.build(true);
+        } else {
+            throw new TestFailException("Ipa server client can be used in tests only using direct connection.");
+        }
     }
 
     @Override
