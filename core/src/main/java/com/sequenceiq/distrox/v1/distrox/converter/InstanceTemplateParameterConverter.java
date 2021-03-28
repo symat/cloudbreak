@@ -2,15 +2,19 @@ package com.sequenceiq.distrox.v1.distrox.converter;
 
 import static com.sequenceiq.cloudbreak.util.NullUtil.getIfNotNull;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Component;
 
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AwsEncryptionV4Parameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AwsInstanceTemplateV4Parameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AwsInstanceTemplateV4SpotParameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AwsPlacementGroupV4Parameters;
+import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AzureEncryptionV4Parameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.AzureInstanceTemplateV4Parameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.GcpInstanceTemplateV4Parameters;
 import com.sequenceiq.cloudbreak.api.endpoint.v4.stacks.base.parameter.template.YarnInstanceTemplateV4Parameters;
+import com.sequenceiq.common.api.type.EncryptionType;
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.AwsEncryptionV1Parameters;
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.AwsInstanceTemplateV1Parameters;
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.AwsInstanceTemplateV1SpotParameters;
@@ -18,6 +22,9 @@ import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.AwsPla
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.AzureInstanceTemplateV1Parameters;
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.GcpInstanceTemplateV1Parameters;
 import com.sequenceiq.distrox.api.v1.distrox.model.instancegroup.template.YarnInstanceTemplateV1Parameters;
+import com.sequenceiq.environment.api.v1.environment.model.request.azure.AzureEnvironmentParameters;
+import com.sequenceiq.environment.api.v1.environment.model.request.azure.AzureResourceEncryptionParameters;
+import com.sequenceiq.environment.api.v1.environment.model.response.DetailedEnvironmentResponse;
 
 @Component
 public class InstanceTemplateParameterConverter {
@@ -58,12 +65,36 @@ public class InstanceTemplateParameterConverter {
         return new GcpInstanceTemplateV1Parameters();
     }
 
-    public AzureInstanceTemplateV4Parameters convert(AzureInstanceTemplateV1Parameters source) {
+    public AzureInstanceTemplateV4Parameters convert(AzureInstanceTemplateV1Parameters source, DetailedEnvironmentResponse environment) {
         AzureInstanceTemplateV4Parameters response = new AzureInstanceTemplateV4Parameters();
         response.setEncrypted(source.getEncrypted());
+        initAzureEncryptionFromEnvironment(response, environment);
         response.setManagedDisk(source.getManagedDisk());
         response.setPrivateId(source.getPrivateId());
         return response;
+    }
+
+    private void initAzureEncryptionFromEnvironment(AzureInstanceTemplateV4Parameters response, DetailedEnvironmentResponse environment) {
+        // FIXME getEncryptionKeyUrl -> getDiskEncryptionSetId
+        String diskEncryptionSetId = Optional.of(environment)
+                .map(DetailedEnvironmentResponse::getAzure)
+                .map(AzureEnvironmentParameters::getResourceEncryptionParameters)
+                .map(AzureResourceEncryptionParameters::getEncryptionKeyUrl)
+                .orElse(null);
+
+        // FIXME Remove fake DES IDs
+//        diskEncryptionSetId = "/subscriptions/3ddda1c7-d1f5-4e7b-ac81-0523f483b3b3/resourceGroups/lrodek-daily-system-rg/providers/" +
+//                "Microsoft.Compute/diskEncryptionSets/lrodek-daily-des";
+//        diskEncryptionSetId = "/subscriptions/3ddda1c7-d1f5-4e7b-ac81-0523f483b3b3/resourceGroups/lrodek-daily-system-rg/providers/" +
+//                "Microsoft.Compute/diskEncryptionSets/lrodek-daily-des-double";
+//        diskEncryptionSetId = null;
+
+        if (diskEncryptionSetId != null) {
+            AzureEncryptionV4Parameters encryption = new AzureEncryptionV4Parameters();
+            encryption.setType(EncryptionType.CUSTOM);
+            encryption.setDiskEncryptionSetId(diskEncryptionSetId);
+            response.setEncryption(encryption);
+        }
     }
 
     public YarnInstanceTemplateV4Parameters convert(YarnInstanceTemplateV1Parameters source) {
