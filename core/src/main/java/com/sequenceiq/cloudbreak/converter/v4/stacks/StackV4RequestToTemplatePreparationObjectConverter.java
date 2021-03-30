@@ -43,6 +43,7 @@ import com.sequenceiq.cloudbreak.domain.stack.cluster.gateway.Gateway;
 import com.sequenceiq.cloudbreak.dto.KerberosConfig;
 import com.sequenceiq.cloudbreak.dto.LdapView;
 import com.sequenceiq.cloudbreak.dto.credential.Credential;
+import com.sequenceiq.cloudbreak.service.CustomServiceConfigsService;
 import com.sequenceiq.cloudbreak.service.blueprint.BlueprintService;
 import com.sequenceiq.cloudbreak.service.blueprint.BlueprintViewProvider;
 import com.sequenceiq.cloudbreak.service.datalake.SdxClientService;
@@ -87,6 +88,9 @@ public class StackV4RequestToTemplatePreparationObjectConverter extends Abstract
 
     @Inject
     private BlueprintService blueprintService;
+
+    @Inject
+    private CustomServiceConfigsService customConfigsService;
 
     @Inject
     private FileSystemConfigurationProvider fileSystemConfigurationProvider;
@@ -145,6 +149,7 @@ public class StackV4RequestToTemplatePreparationObjectConverter extends Abstract
             BaseFileSystemConfigurationsView fileSystemConfigurationView = getFileSystemConfigurationView(source, credential.getAttributes());
             Set<RDSConfig> rdsConfigs = getRdsConfigs(source, workspace);
             Blueprint blueprint = getBlueprint(source, workspace);
+
             Set<HostgroupView> hostgroupViews = getHostgroupViews(source);
             Gateway gateway = source.getCluster().getGateway() == null ? null : getConversionService().convert(source, Gateway.class);
             BlueprintView blueprintView = blueprintViewProvider.getBlueprintView(blueprint);

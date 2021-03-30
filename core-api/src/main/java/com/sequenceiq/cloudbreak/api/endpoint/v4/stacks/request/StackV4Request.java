@@ -12,6 +12,8 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import org.jvnet.hk2.annotations.Optional;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -100,6 +102,17 @@ public class StackV4Request extends StackV4Base implements TaggableRequest {
     @DatalakeCrn
     @ApiModelProperty(value = StackModelDescription.RESOURCE_CRN)
     private String resourceCrn;
+
+    @ApiModelProperty(value = StackModelDescription.CUSTOM_SERVICE_CONFIGS)
+    private String customServiceConfigsCrn;
+
+    public String getCustomServiceConfigsCrn() {
+        return customServiceConfigsCrn;
+    }
+
+    public void setCustomServiceConfigsCrn(String customServiceConfigsCrn) {
+        this.customServiceConfigsCrn = customServiceConfigsCrn;
+    }
 
     public String getEnvironmentCrn() {
         return environmentCrn;
