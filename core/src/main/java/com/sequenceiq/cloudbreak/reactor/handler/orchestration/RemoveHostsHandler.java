@@ -101,8 +101,10 @@ public class RemoveHostsHandler implements EventHandler<RemoveHostsRequest> {
             ExitCriteriaModel exitCriteriaModel = clusterDeletionBasedModel(stack.getId(), stack.getCluster().getId());
             hostOrchestrator.tearDown(allGatewayConfigs, removeNodePrivateIPsByFQDN, remainingNodes, exitCriteriaModel);
         } catch (CloudbreakOrchestratorException e) {
-            LOGGER.info("Failed to delete orchestrator components while decommissioning: ", e);
-            throw new CloudbreakException("Failed to delete orchestrator components while decommissioning: ", e);
+            LOGGER.error("Failed to delete orchestrator components while decommissioning: ", e);
+            throw new CloudbreakException("Removing selected nodes from CM master node failed, " +
+                    "please check if selected nodes are still reachable from CM master node using terminal and " +
+                    "nodes are in sync between CM and CDP and provider side.");
         }
         return SUCCESS;
     }
