@@ -67,6 +67,7 @@ public class ExternalDatabaseService {
         AllocateDatabaseServerV4Request request = getDatabaseRequest(environment, externalDatabase, cluster);
         String databaseCrn;
         try {
+            redbeamsClient.listByEnvironmentCrn(environment.getCrn()).getResponses().stream().filter(db -> db.getClusterCrn().equals(cluster.getCr))
             databaseCrn = redbeamsClient.create(request).getResourceCrn();
             updateClusterWithDatabaseServerCrn(cluster, databaseCrn);
         } catch (BadRequestException badRequestException) {

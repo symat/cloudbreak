@@ -9,12 +9,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.google.common.base.Strings;
 import com.sequenceiq.cloudbreak.auth.ThreadBasedUserCrnProvider;
 import com.sequenceiq.cloudbreak.common.exception.CloudbreakServiceException;
 import com.sequenceiq.redbeams.api.endpoint.v4.databaseserver.DatabaseServerV4Endpoint;
 import com.sequenceiq.redbeams.api.endpoint.v4.databaseserver.requests.AllocateDatabaseServerV4Request;
 import com.sequenceiq.redbeams.api.endpoint.v4.databaseserver.responses.DatabaseServerStatusV4Response;
 import com.sequenceiq.redbeams.api.endpoint.v4.databaseserver.responses.DatabaseServerV4Response;
+import com.sequenceiq.redbeams.api.endpoint.v4.databaseserver.responses.DatabaseServerV4Responses;
 
 @Service
 public class RedbeamsClientService {
@@ -74,6 +76,19 @@ public class RedbeamsClientService {
             ThreadBasedUserCrnProvider.doAsInternalActor(() -> redbeamsServerEndpoint.stop(crn));
         } catch (WebApplicationException | ProcessingException e) {
             String message = String.format("Failed to stop DatabaseServer with CRN %s", crn);
+            LOGGER.error(message, e);
+            throw new CloudbreakServiceException(message, e);
+        }
+    }
+
+    public DatabaseServerV4Responses listByEnvironmentCrn(String envCrn) {
+        if (Strings.isNullOrEmpty(envCrn)) {
+            throw new CloudbreakServiceException("env crn is empty");
+        }
+        try {
+            return ThreadBasedUserCrnProvider.doAsInternalActor(() -> redbeamsServerEndpoint.list(envCrn));
+        } catch (WebApplicationException | ProcessingException e) {
+            String message = String.format("Failed to list DatabaseServers with CRN %s", envCrn);
             LOGGER.error(message, e);
             throw new CloudbreakServiceException(message, e);
         }
