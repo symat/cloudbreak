@@ -81,7 +81,7 @@ public class InternalSdxRepairWithRecipeTest extends PreconditionSdxE2ETest {
                 .awaitForInstance(getSdxInstancesHealthyState())
                 .then((tc, testDto, client) -> {
                     return sshJUtil.checkFilesOnHostByNameAndPath(testDto, client, List.of(MASTER.getName(), IDBROKER.getName()),
-                            filePath, fileName, 1);
+                            filePath, fileName, 1, null, null);
                 })
                 .then((tc, testDto, client) -> {
                     List<String> instanceIdsToStop = sdxUtil.getInstanceIds(testDto, client, MASTER.getName());
@@ -96,7 +96,7 @@ public class InternalSdxRepairWithRecipeTest extends PreconditionSdxE2ETest {
                 .awaitForInstance(getSdxInstancesHealthyState())
                 .then((tc, testDto, client) -> {
                     return sshJUtil.checkFilesOnHostByNameAndPath(testDto, client, List.of(MASTER.getName(), IDBROKER.getName()),
-                            filePath, fileName, 1);
+                            filePath, fileName, 1, null, null);
                 })
                 .validate();
     }

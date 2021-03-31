@@ -66,8 +66,8 @@ public class SshJClientActions extends SshJClient {
         return instanceIPs;
     }
 
-    public SdxInternalTestDto checkFilesByNameAndPath(SdxInternalTestDto testDto, SdxClient sdxClient,
-            List<String> hostGroupNames, String filePath, String fileName, long requiredNumberOfFiles) {
+    public SdxInternalTestDto checkFilesByNameAndPath(SdxInternalTestDto testDto, SdxClient sdxClient, List<String> hostGroupNames, String filePath,
+            String fileName, long requiredNumberOfFiles, String user, String password) {
         String fileListCommand = String.format("find %s -type f -name %s", filePath, fileName);
         AtomicLong quantity = new AtomicLong(0);
 
@@ -75,31 +75,21 @@ public class SshJClientActions extends SshJClient {
          * Right now only the Private IP is available for an Instance.
          */
         getSdxInstanceGroupIps(testDto.getName(), sdxClient, hostGroupNames, false).forEach(instanceIP -> {
-            try (SSHClient sshClient = createSshClient(instanceIP)) {
-                Pair<Integer, String> cmdOut = execute(sshClient, fileListCommand);
-                Log.log(LOGGER, format("Command exit status [%s] and result [%s].", String.valueOf(cmdOut.getKey()), cmdOut.getValue()));
-
-                List<String> cmdOutputValues = List.of(cmdOut.getValue().split("[\\r\\n\\t]"))
-                        .stream().filter(Objects::nonNull).collect(Collectors.toList());
-                boolean fileFound = cmdOutputValues.stream()
-                        .anyMatch(outputValue -> outputValue.strip().startsWith("/"));
-                String foundFilePath = cmdOutputValues.stream()
-                        .filter(outputValue -> outputValue.strip().startsWith("/")).findFirst().orElse(null);
-                Log.log(LOGGER, format("The file is present [%s] at [%s] path.", fileFound, foundFilePath));
-
-                quantity.set(cmdOutputValues.stream()
-                        .filter(outputValue -> outputValue.strip().startsWith("/")).count());
+            LOGGER.info("Creating SSH client on '{}' host with user: '{}' and password: '{}'.", instanceIP, user, password);
+            try (SSHClient client = createSshClient(instanceIP, user, password)) {
+                quantity.set(executefileListCommand(instanceIP, fileListCommand, client));
             } catch (Exception e) {
-                LOGGER.error("SSH fail on [{}] while getting info for [{}] file", instanceIP, filePath);
-                throw new TestFailException(" SSH fail on [" + instanceIP + "] while getting info for [" + filePath + "] file.", e);
+                LOGGER.error("Create SSH client is failing on '{}' host with user: '{}' and password: '{}'!", instanceIP, user, password);
+                throw new TestFailException(String.format(" Create SSH client is failing on '%s' host with user: '%s' and password: '%s'! ",
+                        instanceIP, user, password), e);
             }
         });
 
         if (requiredNumberOfFiles == quantity.get()) {
-            Log.log(LOGGER, format(" File [%s] is available at [%s] host group(s). ", filePath, hostGroupNames.toString()));
+            Log.log(LOGGER, format(" File '%s' is available at [%s] host group(s). ", filePath, hostGroupNames.toString()));
         } else {
-            LOGGER.error("File [{}] is NOT available at [{}] host group(s).", filePath, hostGroupNames.toString());
-            throw new TestFailException(" File at: " + filePath + " path is NOT available at: " + hostGroupNames.toString() + " host group(s).");
+            LOGGER.error("File '{}' is NOT available at [{}] host group(s)!", filePath, hostGroupNames.toString());
+            throw new TestFailException(String.format(" File '%s' is NOT available at [%s] host group(s)!", filePath, hostGroupNames.toString()));
         }
         return testDto;
     }
@@ -129,7 +119,7 @@ public class SshJClientActions extends SshJClient {
     }
 
     private Pair<Integer, String> executeSshCommand(String instanceIp, String command) {
-        try (SSHClient sshClient = createSshClient(instanceIp)) {
+        try (SSHClient sshClient = createSshClient(instanceIp, null, null)) {
             Pair<Integer, String> cmdOut = execute(sshClient, command);
             Log.log(LOGGER, format("Command exit status [%s] and result [%s].", cmdOut.getKey(), cmdOut.getValue()));
             return cmdOut;
@@ -137,5 +127,29 @@ public class SshJClientActions extends SshJClient {
             LOGGER.error("SSH fail on [{}] while executing command [{}]", instanceIp, command);
             throw new TestFailException(" SSH fail on [" + instanceIp + "] while executing command [" + command + "].", e);
         }
+    }
+
+    private long executefileListCommand(String instanceIP, String fileListCommand, SSHClient sshClient) {
+        AtomicLong quantity = new AtomicLong(0);
+
+        try {
+            Pair<Integer, String> cmdOut = execute(sshClient, fileListCommand);
+            Log.log(LOGGER, format("Command exit status '%s' and result '%s'.", cmdOut.getKey(), cmdOut.getValue()));
+
+            List<String> cmdOutputValues = List.of(cmdOut.getValue().split("[\\r\\n\\t]"))
+                    .stream().filter(Objects::nonNull).collect(Collectors.toList());
+            boolean fileFound = cmdOutputValues.stream()
+                    .anyMatch(outputValue -> outputValue.strip().startsWith("/"));
+            String foundFilePath = cmdOutputValues.stream()
+                    .filter(outputValue -> outputValue.strip().startsWith("/")).findFirst().orElse(null);
+            Log.log(LOGGER, format("The file is present '%s' at '%s' path.", fileFound, foundFilePath));
+
+            quantity.set(cmdOutputValues.stream()
+                    .filter(outputValue -> outputValue.strip().startsWith("/")).count());
+        } catch (Exception e) {
+            LOGGER.error("SSH fail on '{}' host while running command: [{}]", instanceIP, fileListCommand);
+            throw new TestFailException(String.format(" SSH fail on '%s' host while running command: [%s]! ", instanceIP, fileListCommand), e);
+        }
+        return quantity.get();
     }
 }

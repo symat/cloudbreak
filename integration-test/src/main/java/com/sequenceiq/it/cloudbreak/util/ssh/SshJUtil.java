@@ -19,7 +19,7 @@ public class SshJUtil {
     }
 
     public SdxInternalTestDto checkFilesOnHostByNameAndPath(SdxInternalTestDto testDto, SdxClient sdxClient,
-            List<String> hostGroupNames, String filePath, String fileName, long requiredNumberOfFiles) {
-        return sshJClientActions.checkFilesByNameAndPath(testDto, sdxClient, hostGroupNames, filePath, fileName, requiredNumberOfFiles);
+            List<String> hostGroupNames, String filePath, String fileName, long requiredNumberOfFiles, String user, String password) {
+        return sshJClientActions.checkFilesByNameAndPath(testDto, sdxClient, hostGroupNames, filePath, fileName, requiredNumberOfFiles, user, password);
     }
 }

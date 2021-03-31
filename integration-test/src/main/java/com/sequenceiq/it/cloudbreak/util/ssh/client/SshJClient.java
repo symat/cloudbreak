@@ -50,15 +50,28 @@ public class SshJClient {
         }
     }
 
-    protected SSHClient createSshClient(String host) throws IOException {
+    protected SSHClient createSshClient(String host, String user, String password) throws IOException {
         SSHClient client = new SSHClient();
 
         client.addHostKeyVerifier(new PromiscuousVerifier());
         client.connect(host, 22);
         client.setConnectTimeout(120000);
-        client.authPublickey("cloudbreak", defaultPrivateKeyFile);
-        Log.log(LOGGER, format("SSH client has been authenticated [%s] with at [%s]", client.isAuthenticated(), client.getRemoteHostname()));
-
+        if (StringUtils.isBlank(user) && StringUtils.isBlank(password)) {
+            LOGGER.info("Creating SSH client on '{}' host with application.yml defaultPrivateKeyFile and 'cloudbreak' user.", host);
+            client.authPublickey("cloudbreak", defaultPrivateKeyFile);
+            Log.log(LOGGER, format(" SSH client has been authenticated with public key and 'cloudbreak' user: [%s] at [%s] host. ", client.isAuthenticated(),
+                    client.getRemoteHostname()));
+        } else if (StringUtils.isNotBlank(user) && StringUtils.isBlank(password)) {
+            LOGGER.info("Creating SSH client on '{}' host with application.yml defaultPrivateKeyFile and '{}' user.", host, user);
+            client.authPublickey(user, defaultPrivateKeyFile);
+            Log.log(LOGGER, format(" SSH client has been authenticated with public key and user (%s): [%s] at [%s] host. ", user, client.isAuthenticated(),
+                    client.getRemoteHostname()));
+        } else {
+            LOGGER.info("Creating SSH client on '{}' host with user: '{}' and password: '{}'.", host, user, password);
+            client.authPassword(user, password);
+            Log.log(LOGGER, format(" SSH client has been authenticated with user (%s) and password (%s): [%s] at [%s] host. ", user, password,
+                    client.isAuthenticated(), client.getRemoteHostname()));
+        }
         return client;
     }
 
@@ -75,7 +88,7 @@ public class SshJClient {
     }
 
     protected Pair<Integer, String> executeCommand(String instanceIP, String command) {
-        try (SSHClient sshClient = createSshClient(instanceIP)) {
+        try (SSHClient sshClient = createSshClient(instanceIP, null, null)) {
             Pair<Integer, String> cmdOut = execute(sshClient, command);
             Log.log(LOGGER, format("Command exit status [%s] and result [%s].", cmdOut.getKey(), cmdOut.getValue()));
             return cmdOut;

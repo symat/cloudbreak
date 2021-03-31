@@ -22,7 +22,7 @@ import com.sequenceiq.it.cloudbreak.dto.InstanceGroupTestDto;
 import com.sequenceiq.it.cloudbreak.dto.recipe.RecipeTestDto;
 import com.sequenceiq.it.cloudbreak.dto.stack.StackTestDto;
 import com.sequenceiq.it.cloudbreak.testcase.e2e.AbstractE2ETest;
-import com.sequenceiq.it.cloudbreak.util.ClouderaManagerUtil;
+import com.sequenceiq.it.cloudbreak.util.clouderamanager.ClouderaManagerUtil;
 import com.sequenceiq.it.util.ResourceUtil;
 
 public class YarnSmokeTest extends AbstractE2ETest {
@@ -41,6 +41,9 @@ public class YarnSmokeTest extends AbstractE2ETest {
 
     @Inject
     private CommonCloudProperties commonCloudProperties;
+
+    @Inject
+    private ClouderaManagerUtil clouderaManagerUtil;
 
     @Override
     protected void setupTest(TestContext testContext) {
@@ -75,7 +78,7 @@ public class YarnSmokeTest extends AbstractE2ETest {
                 .replaceInstanceGroups(INSTANCE_GROUP_ID)
                 .when(stackTestClient.createV4(), key(stack))
                 .await(STACK_AVAILABLE, key(stack))
-                .then(ClouderaManagerUtil::checkClouderaManagerUser)
+                .then((tc, testDto, client) -> clouderaManagerUtil.checkClouderaManagerUser(tc, testDto, client))
                 .validate();
     }
 
