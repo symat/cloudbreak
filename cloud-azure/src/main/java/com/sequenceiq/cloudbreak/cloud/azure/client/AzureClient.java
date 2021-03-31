@@ -28,7 +28,6 @@ import com.microsoft.azure.management.network.NetworkSecurityGroup;
 import com.microsoft.azure.management.network.NetworkSecurityGroups;
 import com.microsoft.azure.management.network.PublicIPAddress;
 import com.microsoft.azure.management.network.Subnet;
-import com.microsoft.azure.management.network.model.HasPrivateIPAddress;
 import com.microsoft.azure.management.privatedns.v2018_09_01.PrivateZone;
 import com.microsoft.azure.management.privatedns.v2018_09_01.VirtualNetworkLinkState;
 import com.microsoft.azure.management.privatedns.v2018_09_01.implementation.VirtualNetworkLinkInner;
@@ -689,10 +688,11 @@ public class AzureClient {
 
     public List<String> getLoadBalancerPrivateIps(String resourceGroupName, String loadBalancerName) {
         List<String> ipList = new ArrayList<>();
+        // The keys in this map are the names of the frontend load balancers
         Map<String, LoadBalancerFrontend> frontends = getLoadBalancer(resourceGroupName, loadBalancerName).frontends();
         for (LoadBalancerFrontend frontend : frontends.values()) {
-            if (!frontend.isPublic() && frontend instanceof HasPrivateIPAddress) {
-                String privateIp = ((HasPrivateIPAddress) frontend).privateIPAddress();
+            String privateIp = frontend.inner().privateIPAddress();
+            if (privateIp != null) {
                 ipList.add(privateIp);
             }
         }
