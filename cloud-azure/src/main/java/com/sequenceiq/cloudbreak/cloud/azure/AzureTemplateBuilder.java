@@ -29,6 +29,7 @@ import com.sequenceiq.cloudbreak.cloud.azure.view.AzureStackView;
 import com.sequenceiq.cloudbreak.cloud.context.CloudContext;
 import com.sequenceiq.cloudbreak.cloud.exception.CloudConnectorException;
 import com.sequenceiq.cloudbreak.cloud.model.CloudCredential;
+import com.sequenceiq.cloudbreak.cloud.model.CloudLoadBalancer;
 import com.sequenceiq.cloudbreak.cloud.model.CloudStack;
 import com.sequenceiq.cloudbreak.cloud.model.Image;
 import com.sequenceiq.cloudbreak.cloud.model.Network;
@@ -80,12 +81,13 @@ public class AzureTemplateBuilder {
             model.put("credential", azureInstanceCredentialView);
             String rootDiskStorage = azureStorage.getImageStorageName(armCredentialView, cloudContext, cloudStack);
             AzureSecurityView armSecurityView = new AzureSecurityView(cloudStack.getGroups());
-            List<AzureLoadBalancer> azureLoadBalancers;
+            List<AzureLoadBalancer> azureLoadBalancers = null;
             try {
-                azureLoadBalancers = cloudStack.getLoadBalancers().stream().map(AzureLoadBalancer::new).collect(toList());
+                azureLoadBalancers = cloudStack.getLoadBalancers().stream()
+                    .map((CloudLoadBalancer cloudLoadBalancer) -> new AzureLoadBalancer(cloudLoadBalancer, stackName))
+                    .collect(toList());
             } catch (NoSuchElementException e) {
-                throw new CloudConnectorException("Error creating the Azure load balancer objects. The target Group name may not " +
-                    "have been set correctly. CloudLoadBalancers being converted from: " + cloudStack.getLoadBalancers(), e);
+                throwTargetGroupException(cloudStack.getLoadBalancers(), e);
             }
 
             // needed for pre 1.16.5 templates and Load balancer setup on Medium duty datalakes.
@@ -124,6 +126,11 @@ public class AzureTemplateBuilder {
         }
     }
 
+    private void throwTargetGroupException(List<CloudLoadBalancer> cloudLoadBalancers, Exception origEx) {
+        throw new CloudConnectorException("Error creating the Azure load balancer objects. The target Group name may not " +
+            "have been set correctly. CloudLoadBalancers being converted from: " + cloudLoadBalancers, origEx);
+    }
+
     public String buildParameters(CloudCredential credential, Network network, Image image) {
         try {
             return freeMarkerTemplateUtils.processTemplateIntoString(freemarkerConfiguration.getTemplate(armTemplateParametersPath, "UTF-8"), new HashMap<>());
@@ -156,12 +163,23 @@ public class AzureTemplateBuilder {
         return new String(Base64.encodeBase64(String.format("%s", data).getBytes()));
     }
 
+    /**
+     * Creates a mapping between the instances groups and the load balancers, where the instance group name is the key
+     * and a list of load balancers that will route traffic to instances in that group is the value. While this information
+     * is available via the AzureLoadBalancer#getInstanceGroupName method, this map is used to simplify the ARM template
+     * logic because it shows which load balancers are associated with which instances groups, without having to iterate
+     * over the entire list of load balancers in the template.
+     * @param azureLoadBalancers The list of all load balancers that will be created
+     * @return A map of instance group names to the load balancers associated with them
+     */
     private Map<String, List<AzureLoadBalancer>> createTargetInstanceGroupMapping(List<AzureLoadBalancer> azureLoadBalancers) {
         Set<String> groupNames = azureLoadBalancers.stream().map(AzureLoadBalancer::getInstanceGroupName).collect(Collectors.toSet());
-        return groupNames.stream()
+        Map<String, List<AzureLoadBalancer>> mapping = groupNames.stream()
             .collect(Collectors.toMap(
                 name -> name,
                 name -> azureLoadBalancers.stream().filter(lb -> lb.getInstanceGroupName().equals(name)).collect(Collectors.toList()))
             );
+        LOGGER.debug("InstanceGroup to LoadBalancer mapping result: {}", mapping);
+        return mapping;
     }
 }

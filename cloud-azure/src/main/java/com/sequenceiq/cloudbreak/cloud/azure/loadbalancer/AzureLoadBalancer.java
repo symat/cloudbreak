@@ -23,7 +23,7 @@ public final class AzureLoadBalancer {
 
     private final String instanceGroupName;
 
-    public AzureLoadBalancer(CloudLoadBalancer cloudLoadBalancer) {
+    public AzureLoadBalancer(CloudLoadBalancer cloudLoadBalancer, String stackName) {
         rules = cloudLoadBalancer.getPortToTargetGroupMapping()
                 .keySet()
                 .stream()
@@ -35,18 +35,18 @@ public final class AzureLoadBalancer {
                 .map(AzureLoadBalancingRule::getProbe)
                 .collect(toSet());
 
-        this.name = getLoadBalancerName(cloudLoadBalancer.getType());
+        this.name = getLoadBalancerName(cloudLoadBalancer.getType(), stackName);
         this.type = cloudLoadBalancer.getType();
         // we validate there's only one target instance group when the
-        // load balancer object is first initiatlized, so get the first
+        // load balancer object is first initialized, so get the first
         // and only element in the set
         this.instanceGroupName = cloudLoadBalancer.getPortToTargetGroupMapping().values().stream()
             .map(groups -> groups.iterator().next().getName())
             .findFirst().get();
     }
 
-    public static String getLoadBalancerName(LoadBalancerType type) {
-        return LOAD_BALANCER_NAME_PREFIX + type.toString();
+    public static String getLoadBalancerName(LoadBalancerType type, String stackName) {
+        return LOAD_BALANCER_NAME_PREFIX + stackName + type.toString();
     }
 
     public Collection<AzureLoadBalancingRule> getRules() {
