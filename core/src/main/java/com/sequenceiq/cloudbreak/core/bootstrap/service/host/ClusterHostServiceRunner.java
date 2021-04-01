@@ -332,7 +332,7 @@ public class ClusterHostServiceRunner {
         postgresConfigService.decorateServicePillarWithPostgresIfNeeded(servicePillar, stack, cluster);
 
         if (blueprintService.isClouderaManagerTemplate(cluster.getBlueprint())) {
-            addClouderaManagerConfig(stack, cluster, servicePillar, clouderaManagerRepo);
+            addClouderaManagerConfig(stack, cluster, servicePillar, clouderaManagerRepo, primaryGatewayConfig);
         }
         ldapView.ifPresent(ldap -> saveLdapPillar(ldap, servicePillar));
 
@@ -372,7 +372,8 @@ public class ClusterHostServiceRunner {
                 && !kerberosDetailService.isClusterManagerManagedKrb5Config(kerberosConfig);
     }
 
-    private void addClouderaManagerConfig(Stack stack, Cluster cluster, Map<String, SaltPillarProperties> servicePillar, ClouderaManagerRepo clouderaManagerRepo)
+    private void addClouderaManagerConfig(Stack stack, Cluster cluster, Map<String, SaltPillarProperties> servicePillar,
+            ClouderaManagerRepo clouderaManagerRepo, GatewayConfig primaryGatewayConfig)
             throws CloudbreakOrchestratorFailedException {
         Telemetry telemetry = componentConfigProviderService.getTelemetry(stack.getId());
         DataBusCredential dataBusCredential = null;
@@ -389,7 +390,7 @@ public class ClusterHostServiceRunner {
         Optional<String> licenseOpt = decoratePillarWithClouderaManagerLicense(stack.getId(), servicePillar);
         decoratePillarWithClouderaManagerRepo(clouderaManagerRepo, servicePillar, licenseOpt);
         decoratePillarWithClouderaManagerDatabase(cluster, servicePillar);
-        decoratePillarWithClouderaManagerCommunicationSettings(cluster, servicePillar);
+        decoratePillarWithClouderaManagerCommunicationSettings(cluster, servicePillar, primaryGatewayConfig);
         decoratePillarWithClouderaManagerAutoTls(cluster, servicePillar);
         csdParcelDecorator.decoratePillarWithCsdParcels(stack, servicePillar);
         decoratePillarWithClouderaManagerSettings(servicePillar, clouderaManagerRepo, stack);
@@ -451,7 +452,8 @@ public class ClusterHostServiceRunner {
                 new SaltPillarProperties("/cloudera-manager/database.sls", singletonMap("cloudera-manager", singletonMap("database", rdsView))));
     }
 
-    private void decoratePillarWithClouderaManagerCommunicationSettings(Cluster cluster, Map<String, SaltPillarProperties> servicePillar) {
+    private void decoratePillarWithClouderaManagerCommunicationSettings(Cluster cluster, Map<String, SaltPillarProperties> servicePillar,
+            GatewayConfig primaryGatewayConfig) {
         Boolean autoTls = cluster.getAutoTlsEnabled();
         Map<String, Object> communication = new HashMap<>();
         String loadBalancer = loadBalancerConfigService.getLoadBalancerUserFacingFQDN(cluster.getStack().getId());
@@ -462,6 +464,8 @@ public class ClusterHostServiceRunner {
             communication.put("loadbalancer_url", loadBalancer);
         }
         communication.put("ha", true);
+        communication.put("primary", primaryGatewayConfig.getHostname().split(".datalake")[0]);
+        communication.put("primary_fqdn", primaryGatewayConfig.getHostname());
         servicePillar.put("cloudera-manager-communication", new SaltPillarProperties("/cloudera-manager/communication.sls",
                 singletonMap("cloudera-manager", singletonMap("communication", communication))));
     }

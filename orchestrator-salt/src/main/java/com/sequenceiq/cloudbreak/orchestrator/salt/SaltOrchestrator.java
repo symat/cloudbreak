@@ -355,7 +355,7 @@ SaltOrchestrator implements HostOrchestrator {
 
             setPostgreRoleIfNeeded(allNodes, saltConfig, exitModel, sc, serverHostname);
 
-            addClusterManagerRoles(allNodes, exitModel, sc, serverHostname, allNodeHostname);
+            addClusterManagerRoles(allNodes, exitModel, sc, serverHostname, allNodeHostname, primaryGateway.getHostname());
 
             // kerberos
             if (saltConfig.getServicePillarConfig().containsKey("kerberos")) {
@@ -407,9 +407,10 @@ SaltOrchestrator implements HostOrchestrator {
     }
 
     private void addClusterManagerRoles(Set<Node> allNodes, ExitCriteriaModel exitModel,
-            SaltConnector sc, Set<String> serverHostnames, Set<String> allNodeHostname) throws Exception {
+            SaltConnector sc, Set<String> serverHostnames, Set<String> allNodeHostname, String primaryTargetHostname) throws Exception {
         saltCommandRunner.runModifyGrainCommand(sc, new GrainAddRunner(allNodeHostname, allNodes, "manager_agent"), exitModel, exitCriteria);
         saltCommandRunner.runModifyGrainCommand(sc, new GrainAddRunner(serverHostnames, allNodes, "manager_server"), exitModel, exitCriteria);
+        saltCommandRunner.runModifyGrainCommand(sc, new GrainAddRunner(Set.of(primaryTargetHostname), allNodes, "cm_primary"), exitModel, exitCriteria);
     }
 
     private void setAdMemberRoleIfNeeded(Set<Node> allNodes, SaltConfig saltConfig, ExitCriteriaModel exitModel, SaltConnector sc, Set<String> allHostnames)

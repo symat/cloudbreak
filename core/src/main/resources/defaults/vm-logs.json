@@ -297,5 +297,9 @@
   {
     "path": "/var/log/cm_generate_agent_tokens.log",
     "label": "generate_agent_token"
+  },
+  {
+    "path": "/var/log/cm-setup-ha.log",
+    "label": "setup_cm_ha"
   }
 ]
