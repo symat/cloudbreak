@@ -20,7 +20,7 @@ import com.sequenceiq.flow.core.chain.config.FlowTriggerEventQueue;
 @Component
 public class UpgradeDatalakeFlowEventChainFactory implements FlowEventChainFactory<ClusterUpgradeTriggerEvent> {
 
-    @Value("${cb.upgrade.validation.enabled:true}")
+    @Value("${cb.upgrade.validation.sdx.enabled:false}")
     private boolean upgradeValidationEnabled;
 
     @Override
