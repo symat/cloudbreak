@@ -677,13 +677,17 @@ public class AzureClient {
      * @return IP addresses
      */
     public List<String> getLoadBalancerIps(String resourceGroupName, String loadBalancerName) {
-        List<String> ipList = new ArrayList<>();
-        List<String> publicIpAddressIds = getLoadBalancer(resourceGroupName, loadBalancerName).publicIPAddressIds();
-        for (String publicIpAddressId : publicIpAddressIds) {
-            PublicIPAddress publicIpAddress = getPublicIpAddressById(publicIpAddressId);
-            ipList.add(publicIpAddress.ipAddress());
+        List<String> idsAssociatedWithLoadBalancerPublicIps = getLoadBalancer(resourceGroupName, loadBalancerName).publicIPAddressIds();
+        List<PublicIPAddress> publicIpAddressesInResourceGroup = getPublicIpAddresses(resourceGroupName);
+
+        List<String> publicIps = new ArrayList<>();
+        for (PublicIPAddress ipAddress : publicIpAddressesInResourceGroup) {
+            if (idsAssociatedWithLoadBalancerPublicIps.contains(ipAddress.id())) {
+                publicIps.add(ipAddress.ipAddress());
+            }
         }
-        return ipList;
+
+        return publicIps;
     }
 
     public List<String> getLoadBalancerPrivateIps(String resourceGroupName, String loadBalancerName) {
