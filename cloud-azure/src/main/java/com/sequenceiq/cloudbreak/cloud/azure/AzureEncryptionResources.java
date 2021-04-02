@@ -33,6 +33,7 @@ import com.sequenceiq.cloudbreak.cloud.model.Platform;
 import com.sequenceiq.cloudbreak.cloud.model.Variant;
 import com.sequenceiq.cloudbreak.cloud.model.encryption.CreatedEncryptionResources;
 import com.sequenceiq.cloudbreak.cloud.model.encryption.EncryptionResourcesCreationRequest;
+import com.sequenceiq.cloudbreak.cloud.model.encryption.EncryptionResourcesDeletionRequest;
 
 @Service
 public class AzureEncryptionResources implements EncryptionResources {
@@ -56,14 +57,12 @@ public class AzureEncryptionResources implements EncryptionResources {
 
     @Override
     public CreatedEncryptionResources createDiskEncryptionSet(EncryptionResourcesCreationRequest encryptionResourcesCreationRequest) {
-        CloudCredential cloudCredential = encryptionResourcesCreationRequest.getCloudCredential();
-        AzureCredentialView azureCredentialView = new AzureCredentialView(cloudCredential);
+        AzureCredentialView azureCredentialView = new AzureCredentialView(encryptionResourcesCreationRequest.getCloudCredential());
         String subscriptionId = azureCredentialView.getSubscriptionId();
         String encryptionKeyUrl = encryptionResourcesCreationRequest.getEncryptionKeyUrl();
         String resourceGroupName = (String) getOrCreateResourceGroup(encryptionResourcesCreationRequest);
         String vaultName = encryptionKeyUrl.substring(encryptionKeyUrl.indexOf("https://") + "https://".length(), encryptionKeyUrl.indexOf("."));
-        ApplicationTokenCredentials applicationTokenCredentials = new ApplicationTokenCredentials(azureCredentialView.getAccessKey(),
-                azureCredentialView.getTenantId(), azureCredentialView.getSecretKey(), AzureEnvironment.AZURE);
+        ApplicationTokenCredentials applicationTokenCredentials = getApplicationTokenCredentials(azureCredentialView);
 
         CreatedEncryptionResources diskEncryptionSet = createDes(encryptionResourcesCreationRequest,
                 applicationTokenCredentials, subscriptionId, resourceGroupName, vaultName);
@@ -71,6 +70,36 @@ public class AzureEncryptionResources implements EncryptionResources {
                 subscriptionId, vaultName, resourceGroupName);
 
         return diskEncryptionSet;
+    }
+
+    @Override
+    public void deleteDiskEncryptionSet(EncryptionResourcesDeletionRequest encryptionResourcesDeletionRequest) {
+        String diskEncryptionSetId = encryptionResourcesDeletionRequest.getDiskEncryptionSetName();
+        CloudCredential cloudCredential = encryptionResourcesDeletionRequest.getCloudCredential();
+        AzureClient azureClient = azureClientService.getClient(cloudCredential);
+        AzureCredentialView azureCredentialView = new AzureCredentialView(cloudCredential);
+        ApplicationTokenCredentials applicationTokenCredentials = getApplicationTokenCredentials(azureCredentialView);
+
+        String diskEncryptionSetName = diskEncryptionSetId.substring(diskEncryptionSetId.indexOf("Compute/diskEncryptionSets/")
+                + "Compute/diskEncryptionSets/".length());
+        String resourceGroupName = diskEncryptionSetId.substring(diskEncryptionSetId.indexOf("resourceGroups/")
+                + "resourceGroups/".length(), diskEncryptionSetId.indexOf("/providers"));
+
+        LOGGER.debug("Deleting Disk Encryption Set {}", diskEncryptionSetId);
+        DiskEncryptionSetsInner dSetsIn = ComputeManager.authenticate(applicationTokenCredentials, azureCredentialView.getSubscriptionId())
+                .inner().diskEncryptionSets();
+        dSetsIn.delete(resourceGroupName, diskEncryptionSetName);
+        if (!encryptionResourcesDeletionRequest.isSingleResourceGroup()) {
+            LOGGER.debug("Deleting Resource group {} created for Disk Encryption Set {}", resourceGroupName, diskEncryptionSetId);
+            if (azureClient.resourceGroupExists(resourceGroupName)) {
+                azureClient.deleteResourceGroup(resourceGroupName);
+            }
+        }
+    }
+
+    private ApplicationTokenCredentials getApplicationTokenCredentials(AzureCredentialView azureCredentialView) {
+        return new ApplicationTokenCredentials(azureCredentialView.getAccessKey(),
+                azureCredentialView.getTenantId(), azureCredentialView.getSecretKey(), AzureEnvironment.AZURE);
     }
 
     private void grantAccessPolicyToDes(ApplicationTokenCredentials applicationTokenCredentials, String principalId, String subscriptionId,

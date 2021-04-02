@@ -83,7 +83,7 @@ public class ResourceEncryptionInitializationHandler extends EventSenderAwareHan
             EnvCreationEvent envCreationEvent = getEnvCreateEvent(environmentDto);
             eventSender().sendEvent(envCreationEvent, environmentDtoEvent.getHeaders());
         } catch (Exception e) {
-            LOGGER.debug("ResourceEncryptionInitialization failed with error.", e);
+            LOGGER.debug("ResourceEncryptionInitialization failed with error ", e);
             EnvCreationFailureEvent failedEvent =
                     new EnvCreationFailureEvent(environmentDto.getId(), environmentDto.getName(), e, environmentDto.getResourceCrn());
             Event<EnvCreationFailureEvent> ev = new Event<>(environmentDtoEvent.getHeaders(), failedEvent);

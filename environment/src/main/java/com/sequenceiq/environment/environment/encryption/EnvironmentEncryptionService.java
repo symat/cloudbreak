@@ -14,6 +14,7 @@ import com.sequenceiq.cloudbreak.cloud.model.Platform;
 import com.sequenceiq.cloudbreak.cloud.model.Variant;
 import com.sequenceiq.cloudbreak.cloud.model.encryption.CreatedEncryptionResources;
 import com.sequenceiq.cloudbreak.cloud.model.encryption.EncryptionResourcesCreationRequest;
+import com.sequenceiq.cloudbreak.cloud.model.encryption.EncryptionResourcesDeletionRequest;
 import com.sequenceiq.cloudbreak.common.exception.NotFoundException;
 import com.sequenceiq.environment.credential.v1.converter.CredentialToCloudCredentialConverter;
 import com.sequenceiq.environment.environment.domain.Environment;
@@ -41,6 +42,11 @@ public class EnvironmentEncryptionService {
         return encryptionResources.createDiskEncryptionSet(createEncryptionResourcesCreationRequest(environmentDto));
     }
 
+    public void deleteEncryptionResources(EnvironmentDto environmentDto, Environment environment) {
+        EncryptionResources encryptionResources = getCloudConnector(environment.getCloudPlatform());
+        encryptionResources.deleteDiskEncryptionSet(createEncryptionResourcesDeletionRequest(environmentDto));
+    }
+
     private EncryptionResources getCloudConnector(String cloudPlatform) {
         CloudPlatformVariant cloudPlatformVariant = new CloudPlatformVariant(Platform.platform(cloudPlatform), Variant.variant(cloudPlatform));
         return Optional.ofNullable(cloudPlatformConnectors.get(cloudPlatformVariant).encryptionResources())
@@ -60,6 +66,20 @@ public class EnvironmentEncryptionService {
         if (isSingleResourceGroup(environment)) {
             builder.withSingleResourceGroup(true);
             builder.withResourceGroupName(environment.getParameters().getAzureParametersDto().getAzureResourceGroupDto().getName());
+        } else {
+            builder.withSingleResourceGroup(false);
+        }
+        return builder.build();
+    }
+
+    private EncryptionResourcesDeletionRequest createEncryptionResourcesDeletionRequest(EnvironmentDto environment) {
+        CloudCredential cloudCredential = credentialToCloudCredentialConverter.convert(environment.getCredential());
+        EncryptionResourcesDeletionRequest.Builder builder = new EncryptionResourcesDeletionRequest.Builder()
+                .withCloudCredential(cloudCredential)
+                .withDiskEncryptionSetName(environment.getParameters().getAzureParametersDto()
+                        .getAzureResourceEncryptionParametersDto().getDiskEncryptionSetId());
+        if (isSingleResourceGroup(environment)) {
+            builder.withSingleResourceGroup(true);
         } else {
             builder.withSingleResourceGroup(false);
         }
