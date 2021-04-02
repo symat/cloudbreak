@@ -136,10 +136,11 @@ public class AzureMetadataCollector implements MetadataCollector {
 
         List<CloudLoadBalancerMetadata> cloudLoadBalancerMetadata = new ArrayList<>();
         String resourceGroup = azureUtils.getTemplateResource(resources).getName();
+        final String stackName = azureUtils.getStackName(ac.getCloudContext());
         AzureClient azureClient = ac.getParameter(AzureClient.class);
 
         for (LoadBalancerType type : loadBalancerTypes) {
-            String loadBalancerName = AzureLoadBalancer.getLoadBalancerName(type);
+            String loadBalancerName = AzureLoadBalancer.getLoadBalancerName(type, stackName);
             LOGGER.debug("Attempting to collect metadata for load balancer {}, type {}", loadBalancerName, type);
             try {
                 String ip = null;
