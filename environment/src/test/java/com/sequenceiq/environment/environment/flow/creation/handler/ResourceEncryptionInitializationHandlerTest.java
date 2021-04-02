@@ -26,6 +26,7 @@ import org.mockito.quality.Strictness;
 import com.sequenceiq.cloudbreak.auth.altus.EntitlementService;
 import com.sequenceiq.environment.environment.domain.Environment;
 import com.sequenceiq.environment.environment.dto.EnvironmentDto;
+import com.sequenceiq.environment.environment.encryption.EnvironmentEncryptionService;
 import com.sequenceiq.environment.environment.flow.creation.event.EnvCreationEvent;
 import com.sequenceiq.environment.environment.flow.creation.event.EnvCreationFailureEvent;
 import com.sequenceiq.environment.environment.service.EnvironmentService;
@@ -50,6 +51,9 @@ class ResourceEncryptionInitializationHandlerTest {
 
     @Mock
     private EnvironmentService environmentService;
+
+    @Mock
+    private EnvironmentEncryptionService environmentEncryptionService;
 
     @Mock
     private Event<EnvironmentDto> environmentDtoEvent;

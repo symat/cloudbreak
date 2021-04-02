@@ -4,6 +4,7 @@ import static com.sequenceiq.cloudbreak.common.mappable.CloudPlatform.AZURE;
 import static com.sequenceiq.environment.environment.flow.creation.event.EnvCreationHandlerSelectors.INITIALIZE_ENVIRONMENT_RESOURCE_ENCRYPTION_EVENT;
 import static com.sequenceiq.environment.environment.flow.creation.event.EnvCreationStateSelectors.START_FREEIPA_CREATION_EVENT;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
@@ -12,10 +13,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.sequenceiq.cloudbreak.auth.altus.EntitlementService;
+import com.sequenceiq.cloudbreak.cloud.model.encryption.CreatedEncryptionResources;
 import com.sequenceiq.environment.environment.dto.EnvironmentDto;
+import com.sequenceiq.environment.environment.encryption.EnvironmentEncryptionService;
 import com.sequenceiq.environment.environment.flow.creation.event.EnvCreationEvent;
 import com.sequenceiq.environment.environment.flow.creation.event.EnvCreationFailureEvent;
 import com.sequenceiq.environment.environment.service.EnvironmentService;
+import com.sequenceiq.environment.parameters.dao.domain.AzureParameters;
 import com.sequenceiq.flow.reactor.api.event.EventSender;
 import com.sequenceiq.flow.reactor.api.handler.EventSenderAwareHandler;
 
@@ -29,16 +33,19 @@ public class ResourceEncryptionInitializationHandler extends EventSenderAwareHan
 
     private final EnvironmentService environmentService;
 
+    private final EnvironmentEncryptionService environmentEncryptionService;
+
     private final EntitlementService entitlementService;
 
     private final EventBus eventBus;
 
     protected ResourceEncryptionInitializationHandler(EventSender eventSender, EnvironmentService environmentService, EventBus eventBus,
-            EntitlementService entitlementService) {
+            EntitlementService entitlementService, EnvironmentEncryptionService environmentEncryptionService) {
         super(eventSender);
         this.environmentService = environmentService;
         this.eventBus = eventBus;
         this.entitlementService = entitlementService;
+        this.environmentEncryptionService = environmentEncryptionService;
     }
 
     @Override
@@ -58,10 +65,16 @@ public class ResourceEncryptionInitializationHandler extends EventSenderAwareHan
                             .map(azureParamsDto -> azureParamsDto.getAzureResourceEncryptionParametersDto())
                             .map(azureREParamsDto -> azureREParamsDto.getEncryptionKeyUrl()).orElse(null);
                     if (StringUtils.isNotEmpty(encryptionKeyUrl)) {
-                        LOGGER.debug("Creating DiskEncryptionSet for environment.");
-                            /*
-                            TO DO - create the Disk Encryption Set and save environment.
-                            */
+                        LOGGER.info("Creating Encryption resources for environment.");
+                        CreatedEncryptionResources createdEncryptionResources = environmentEncryptionService.createEncryptionResources(environmentDto,
+                                environment);
+                        if (!Objects.isNull(createdEncryptionResources)) {
+                            AzureParameters azureParameters = (AzureParameters) environment.getParameters();
+                            azureParameters.setDiskEncryptionSetId(createdEncryptionResources.getEncryptionResourceId());
+                            environmentService.save(environment);
+                        } else {
+                            LOGGER.error("Failed to create the Disk Encryption set for environment {}.", environment.getName());
+                        }
                     } else {
                         LOGGER.debug("Environment {} has not requested for SSE with CMK.", environment.getName());
                     }
