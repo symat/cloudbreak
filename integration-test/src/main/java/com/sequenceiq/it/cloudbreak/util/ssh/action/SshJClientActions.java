@@ -76,7 +76,7 @@ public class SshJClientActions extends SshJClient {
          */
         getSdxInstanceGroupIps(testDto.getName(), sdxClient, hostGroupNames, false).forEach(instanceIP -> {
             LOGGER.info("Creating SSH client on '{}' host with user: '{}' and password: '{}'.", instanceIP, user, password);
-            try (SSHClient client = createSshClient(instanceIP, user, password)) {
+            try (SSHClient client = createSshClient(instanceIP, user, password, null)) {
                 quantity.set(executefileListCommand(instanceIP, fileListCommand, client));
             } catch (Exception e) {
                 LOGGER.error("Create SSH client is failing on '{}' host with user: '{}' and password: '{}'!", instanceIP, user, password);
@@ -119,7 +119,7 @@ public class SshJClientActions extends SshJClient {
     }
 
     private Pair<Integer, String> executeSshCommand(String instanceIp, String command) {
-        try (SSHClient sshClient = createSshClient(instanceIp, null, null)) {
+        try (SSHClient sshClient = createSshClient(instanceIp, null, null, null)) {
             Pair<Integer, String> cmdOut = execute(sshClient, command);
             Log.log(LOGGER, format("Command exit status [%s] and result [%s].", cmdOut.getKey(), cmdOut.getValue()));
             return cmdOut;

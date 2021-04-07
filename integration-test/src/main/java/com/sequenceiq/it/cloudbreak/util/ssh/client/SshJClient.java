@@ -32,45 +32,50 @@ public class SshJClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(SshJClient.class);
 
     @Value("${integrationtest.defaultPrivateKeyFile}")
-    private String defaultPrivateKeyFile;
+    private String defaultPrivateKeyFilePath;
 
     public SshJClient() {
     }
 
     @PostConstruct
     private void logSetup() {
-        if (StringUtils.isEmpty(defaultPrivateKeyFile)) {
+        if (StringUtils.isEmpty(defaultPrivateKeyFilePath)) {
             LOGGER.info("Private key is not set");
         } else {
-            if (Files.exists(Path.of(defaultPrivateKeyFile))) {
-                LOGGER.info("Private key is configured properly: {}", defaultPrivateKeyFile);
+            if (Files.exists(Path.of(defaultPrivateKeyFilePath))) {
+                LOGGER.info("Private key is configured properly: {}", defaultPrivateKeyFilePath);
             } else {
-                LOGGER.info("Private key is set but not exists: {}", defaultPrivateKeyFile);
+                LOGGER.info("Private key is set but not exists: {}", defaultPrivateKeyFilePath);
             }
         }
     }
 
-    protected SSHClient createSshClient(String host, String user, String password) throws IOException {
+    protected SSHClient createSshClient(String host, String user, String password, String privateKeyFilePath) throws IOException {
         SSHClient client = new SSHClient();
 
         client.addHostKeyVerifier(new PromiscuousVerifier());
         client.connect(host, 22);
         client.setConnectTimeout(120000);
-        if (StringUtils.isBlank(user) && StringUtils.isBlank(password)) {
-            LOGGER.info("Creating SSH client on '{}' host with application.yml defaultPrivateKeyFile and 'cloudbreak' user.", host);
-            client.authPublickey("cloudbreak", defaultPrivateKeyFile);
-            Log.log(LOGGER, format(" SSH client has been authenticated with public key and 'cloudbreak' user: [%s] at [%s] host. ", client.isAuthenticated(),
+        if (StringUtils.isBlank(user) && StringUtils.isBlank(privateKeyFilePath)) {
+            LOGGER.info("Creating SSH client on '{}' host with 'cloudbreak' user and defaultPrivateKeyFile from application.yml.", host);
+            client.authPublickey("cloudbreak", defaultPrivateKeyFilePath);
+            Log.log(LOGGER, format(" SSH client has been authenticated with 'cloudbreak' user and key file: [%s] at [%s] host. ", client.isAuthenticated(),
                     client.getRemoteHostname()));
-        } else if (StringUtils.isNotBlank(user) && StringUtils.isBlank(password)) {
-            LOGGER.info("Creating SSH client on '{}' host with application.yml defaultPrivateKeyFile and '{}' user.", host, user);
-            client.authPublickey(user, defaultPrivateKeyFile);
-            Log.log(LOGGER, format(" SSH client has been authenticated with public key and user (%s): [%s] at [%s] host. ", user, client.isAuthenticated(),
+        } else if (StringUtils.isNotBlank(user) && StringUtils.isNotBlank(privateKeyFilePath)) {
+            LOGGER.info("Creating SSH client on '{}' host with user: '{}' and key file: '{}'.", host, user, privateKeyFilePath);
+            client.authPublickey(user, privateKeyFilePath);
+            Log.log(LOGGER, format(" SSH client has been authenticated with user (%s) and key file: [%s] at [%s] host. ", user, client.isAuthenticated(),
                     client.getRemoteHostname()));
-        } else {
+        } else if (StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password)) {
             LOGGER.info("Creating SSH client on '{}' host with user: '{}' and password: '{}'.", host, user, password);
             client.authPassword(user, password);
-            Log.log(LOGGER, format(" SSH client has been authenticated with user (%s) and password (%s): [%s] at [%s] host. ", user, password,
-                    client.isAuthenticated(), client.getRemoteHostname()));
+            Log.log(LOGGER, format(" SSH client has been authenticated with user (%s) and password: [%s] at [%s] host. ", user, client.isAuthenticated(),
+                    client.getRemoteHostname()));
+        } else {
+            LOGGER.error("Creating SSH client is not possible, because of host: '{}', user: '{}', password: '{}' and privateKey: '{}' are missing!",
+                    host, user, password, privateKeyFilePath);
+            throw new TestFailException(String.format("Creating SSH client is not possible, because of host: '%s', user: '%s', password: '%s'" +
+                            " and privateKey: '%s' are missing!", host, user, password, privateKeyFilePath));
         }
         return client;
     }
@@ -88,7 +93,7 @@ public class SshJClient {
     }
 
     protected Pair<Integer, String> executeCommand(String instanceIP, String command) {
-        try (SSHClient sshClient = createSshClient(instanceIP, null, null)) {
+        try (SSHClient sshClient = createSshClient(instanceIP, null, null, null)) {
             Pair<Integer, String> cmdOut = execute(sshClient, command);
             Log.log(LOGGER, format("Command exit status [%s] and result [%s].", cmdOut.getKey(), cmdOut.getValue()));
             return cmdOut;

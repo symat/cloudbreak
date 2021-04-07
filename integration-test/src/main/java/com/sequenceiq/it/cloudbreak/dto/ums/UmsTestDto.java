@@ -2,6 +2,7 @@ package com.sequenceiq.it.cloudbreak.dto.ums;
 
 import static com.sequenceiq.it.cloudbreak.context.RunningParameter.emptyRunningParameter;
 
+import com.cloudera.thunderhead.service.usermanagement.UserManagementProto;
 import com.sequenceiq.it.cloudbreak.Prototype;
 import com.sequenceiq.it.cloudbreak.UmsClient;
 import com.sequenceiq.it.cloudbreak.action.Action;
@@ -13,7 +14,7 @@ import com.sequenceiq.it.cloudbreak.context.TestContext;
 import com.sequenceiq.it.cloudbreak.dto.AbstractTestDto;
 
 @Prototype
-public class UmsTestDto extends AbstractTestDto<AssignResourceRequest, Object, UmsTestDto, UmsClient> {
+public class UmsTestDto extends AbstractTestDto<AssignResourceRequest, UserManagementProto.User, UmsTestDto, UmsClient> {
 
     private static final String UMS = "UMS";
 
