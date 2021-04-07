@@ -187,10 +187,7 @@ public class AzureMetadataCollectorTest {
     @Test
     public void testCollectSinglePublicLoadBalancer() {
         List<CloudResource> resources = new ArrayList<>();
-        List<CloudInstance> vms = createVms();
         CloudResource cloudResource = createCloudResource();
-        CloudContext cloudContext = mock(CloudContext.class);
-        Map<String, VirtualMachine> machines = getMachines();
 
         when(authenticatedContext.getCloudContext()).thenReturn(mockCloudContext);
         when(mockCloudContext.getName()).thenReturn(RESOURCE_GROUP_NAME);
@@ -214,10 +211,7 @@ public class AzureMetadataCollectorTest {
     @Test
     public void testCollectSinglePublicLoadBalancerWithMultipleIps() {
         List<CloudResource> resources = new ArrayList<>();
-        List<CloudInstance> vms = createVms();
         CloudResource cloudResource = createCloudResource();
-        CloudContext cloudContext = mock(CloudContext.class);
-        Map<String, VirtualMachine> machines = getMachines();
 
         when(authenticatedContext.getCloudContext()).thenReturn(mockCloudContext);
         when(mockCloudContext.getName()).thenReturn(RESOURCE_GROUP_NAME);
@@ -244,10 +238,7 @@ public class AzureMetadataCollectorTest {
     @Test
     public void testCollectPublicAndPrivateLoadBalancer() {
         List<CloudResource> resources = new ArrayList<>();
-        List<CloudInstance> vms = createVms();
         CloudResource cloudResource = createCloudResource();
-        CloudContext cloudContext = mock(CloudContext.class);
-        Map<String, VirtualMachine> machines = getMachines();
 
         when(authenticatedContext.getCloudContext()).thenReturn(mockCloudContext);
         when(mockCloudContext.getName()).thenReturn(RESOURCE_GROUP_NAME);
