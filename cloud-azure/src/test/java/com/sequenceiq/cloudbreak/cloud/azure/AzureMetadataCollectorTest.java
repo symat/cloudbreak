@@ -76,7 +76,8 @@ public class AzureMetadataCollectorTest {
     private static final String PLATFORM = "AZURE";
 
     private static final String LOCALITY_INDICATOR = "/AZURE/EU-WEST1/resourceGroup-1/test-instance-group/1";
-    public static final String SECOND_PUBLIC_IP = "10.32.13.1";
+
+    private static final String SECOND_PUBLIC_IP = "10.32.13.1";
 
     @InjectMocks
     private AzureMetadataCollector underTest;
@@ -240,7 +241,6 @@ public class AzureMetadataCollectorTest {
         assertTrue(PUBLIC_IP.equals(resultIpAddress) || SECOND_PUBLIC_IP.equals(resultIpAddress));
     }
 
-
     @Test
     public void testCollectPublicAndPrivateLoadBalancer() {
         List<CloudResource> resources = new ArrayList<>();
@@ -265,18 +265,22 @@ public class AzureMetadataCollectorTest {
 
         when(authenticatedContext.getParameter(AzureClient.class)).thenReturn(azureClient);
 
-        List<CloudLoadBalancerMetadata> result = underTest.collectLoadBalancer(authenticatedContext, List.of(LoadBalancerType.PUBLIC, LoadBalancerType.PRIVATE), resources);
+        List<CloudLoadBalancerMetadata> result = underTest.collectLoadBalancer(authenticatedContext,
+                List.of(LoadBalancerType.PUBLIC, LoadBalancerType.PRIVATE), resources);
 
         assertEquals(2, result.size());
-        Optional<CloudLoadBalancerMetadata> publicLoadBalancerMetadata = result.stream().filter(metadata -> metadata.getType() == LoadBalancerType.PUBLIC).findAny();
+        Optional<CloudLoadBalancerMetadata> publicLoadBalancerMetadata = result.stream()
+                .filter(metadata -> metadata.getType() == LoadBalancerType.PUBLIC)
+                .findAny();
         assertTrue(publicLoadBalancerMetadata.isPresent());
         assertEquals(PUBLIC_IP, publicLoadBalancerMetadata.get().getIp());
 
-        Optional<CloudLoadBalancerMetadata> privateLoadBalancerMetadata = result.stream().filter(metadata -> metadata.getType() == LoadBalancerType.PRIVATE).findAny();
+        Optional<CloudLoadBalancerMetadata> privateLoadBalancerMetadata = result.stream()
+                .filter(metadata -> metadata.getType() == LoadBalancerType.PRIVATE)
+                .findAny();
         assertTrue(privateLoadBalancerMetadata.isPresent());
         assertEquals(PRIVATE_IP, privateLoadBalancerMetadata.get().getIp());
     }
-
 
     @Test
     public void testCollectPrivateLoadBalancer() {
