@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -351,6 +352,30 @@ public class AzureUtilsTest {
                 () -> underTest.deletePublicIps(azureClient, "resourceGroup", List.of("ip1", "ip2", "ip3")));
 
         verify(azureClient, times(3)).deletePublicIpAddressByNameAsync(anyString(), anyString());
+    }
+
+    @Test
+    public void deleteLoadBalancersShouldSucceed() {
+        AzureClient azureClient = Mockito.mock(AzureClient.class);
+        when(azureClient.deleteLoadBalancerAsync(anyString(), anyString())).thenReturn(Completable.complete());
+
+        underTest.deleteLoadBalancers(azureClient, "resourceGroup", List.of("loadbalancer1", "loadbalancer2"));
+
+        verify(azureClient, times(2)).deleteLoadBalancerAsync(anyString(), anyString());
+    }
+
+    @Test
+    public void deleteLoadBalancersShouldHandleAzureErrorsAndThrowCloudbreakServiceExceptionAfterAllRequestsFinish() {
+        AzureClient azureClient = Mockito.mock(AzureClient.class);
+        when(azureClient.deleteLoadBalancerAsync(anyString(), eq("loadbalancer1"))).thenReturn(Completable.complete());
+        when(azureClient.deleteLoadBalancerAsync(anyString(), eq("loadbalancer2"))).thenReturn(Completable.error(new RuntimeException("failure message 1")));
+        when(azureClient.deleteLoadBalancerAsync(anyString(), eq("loadbalancer3"))).thenReturn(Completable.error(new RuntimeException("failure message 2")));
+
+        assertThrows(CloudbreakServiceException.class, () -> {
+            underTest.deleteLoadBalancers(azureClient, "resourceGroup", List.of("loadbalancer1", "loadbalancer2", "loadbalancer3"));
+        });
+
+        verify(azureClient, times(3)).deleteLoadBalancerAsync(anyString(), anyString());
     }
 
     @Test
