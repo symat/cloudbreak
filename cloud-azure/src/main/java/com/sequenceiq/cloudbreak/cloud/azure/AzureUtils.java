@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
 import com.google.common.base.Splitter;
 import com.microsoft.azure.CloudError;
 import com.microsoft.azure.CloudException;
+import com.microsoft.azure.management.keyvault.KeyPermissions;
 import com.microsoft.azure.management.network.Subnet;
 import com.microsoft.azure.management.resources.Deployment;
 import com.microsoft.azure.management.resources.DeploymentOperation;
@@ -75,6 +76,8 @@ public class AzureUtils {
     private static final int NETWORKINTERFACE_DETACH_CHECKING_INTERVAL = 5000;
 
     private static final int NETWORKINTERFACE_DETACH_CHECKING_MAXATTEMPT = 5;
+
+    private static final int MAX_DISK_ENCRYPTION_SET_NAME_LENGTH = 80;
 
     @Value("${cb.max.azure.resource.name.length:}")
     private int maxResourceNameLength;
@@ -136,6 +139,11 @@ public class AzureUtils {
 
     public String generateResourceGroupNameByNameAndId(String name, String id) {
         return Splitter.fixedLength(maxResourceNameLength - id.length())
+                .splitToList(name).get(0) + id;
+    }
+
+    public String generateDesNameByNameAndId(String name, String id) {
+        return Splitter.fixedLength(MAX_DISK_ENCRYPTION_SET_NAME_LENGTH - id.length())
                 .splitToList(name).get(0) + id;
     }
 
@@ -675,6 +683,17 @@ public class AzureUtils {
         } else {
             return new CloudConnectorException(String.format("%s failed: '%s', please go to Azure Portal for detailed message", actionDescription, e));
         }
+    }
+
+    public void grantKeyVaultAccessPolicyToServicePrincipal(AzureClient client, String resourceGroupName, String vaultName, String principalId) {
+        client.getAzure()
+                .vaults().getByResourceGroup(resourceGroupName, vaultName)
+                .update()
+                .defineAccessPolicy()
+                .forObjectId(principalId)
+                .allowKeyPermissions(List.of(KeyPermissions.WRAP_KEY, KeyPermissions.UNWRAP_KEY, KeyPermissions.GET))
+                .attach()
+                .apply();
     }
 
 }

@@ -30,14 +30,21 @@ import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.compute.AvailabilitySet;
 import com.microsoft.azure.management.compute.CachingTypes;
 import com.microsoft.azure.management.compute.Disk;
+import com.microsoft.azure.management.compute.DiskEncryptionSetIdentityType;
+import com.microsoft.azure.management.compute.DiskEncryptionSetType;
 import com.microsoft.azure.management.compute.DiskSkuTypes;
 import com.microsoft.azure.management.compute.DiskStorageAccountTypes;
+import com.microsoft.azure.management.compute.EncryptionSetIdentity;
+import com.microsoft.azure.management.compute.KeyVaultAndKeyReference;
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes;
+import com.microsoft.azure.management.compute.SourceVault;
 import com.microsoft.azure.management.compute.VirtualMachine;
 import com.microsoft.azure.management.compute.VirtualMachineCustomImage;
 import com.microsoft.azure.management.compute.VirtualMachineDataDisk;
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView;
 import com.microsoft.azure.management.compute.VirtualMachineSize;
+import com.microsoft.azure.management.compute.implementation.DiskEncryptionSetInner;
+import com.microsoft.azure.management.compute.implementation.DiskEncryptionSetsInner;
 import com.microsoft.azure.management.graphrbac.RoleAssignment;
 import com.microsoft.azure.management.graphrbac.RoleAssignments;
 import com.microsoft.azure.management.graphrbac.implementation.RoleAssignmentInner;
@@ -836,5 +843,26 @@ public class AzureClient {
 
     public Completable deleteGenericResourceByIdAsync(String databaseServerId) {
         return handleAuthException(() -> azure.genericResources().deleteByIdAsync(databaseServerId));
+    }
+
+    private DiskEncryptionSetInner getDiskEncryptionSetInner(String sourceVaultId, String encryptionKeyUrl, String location, Map<String, String> tags) {
+        SourceVault sourceVault = new SourceVault().withId(sourceVaultId);
+        KeyVaultAndKeyReference keyUrl = new KeyVaultAndKeyReference().withKeyUrl(encryptionKeyUrl).withSourceVault(sourceVault);
+        DiskEncryptionSetIdentityType desIdType = new DiskEncryptionSetIdentityType().SYSTEM_ASSIGNED;
+        EncryptionSetIdentity eSetId = new EncryptionSetIdentity().withType(desIdType);
+        DiskEncryptionSetType desType = new DiskEncryptionSetType().ENCRYPTION_AT_REST_WITH_CUSTOMER_KEY;
+        return (DiskEncryptionSetInner) new DiskEncryptionSetInner()
+                .withEncryptionType(desType)
+                .withActiveKey(keyUrl)
+                .withIdentity(eSetId)
+                .withLocation(location)
+                .withTags(tags);
+    }
+
+    public DiskEncryptionSetInner createOrUpdateDiskEncryptionSet(String diskEncryptionSetName, String encryptionKeyUrl, String envName, String location,
+            String resourceGroupName, String sourceVaultId, Map<String, String> tags) {
+        DiskEncryptionSetInner desIn = getDiskEncryptionSetInner(sourceVaultId, encryptionKeyUrl, location, tags);
+        DiskEncryptionSetsInner dSetsIn = azureClientCredentials.getComputeManager().inner().diskEncryptionSets();
+        return dSetsIn.createOrUpdate(resourceGroupName, diskEncryptionSetName, desIn);
     }
 }
