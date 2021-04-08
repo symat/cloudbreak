@@ -26,7 +26,7 @@ public class SdxStartWaitHandler extends ExceptionCatcherEventHandler<SdxStartWa
 
     public static final int SLEEP_TIME_IN_SEC = 20;
 
-    public static final int DURATION_IN_MINUTES = 40;
+    public static final int DURATION_IN_MINUTES = 120;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SdxStartWaitHandler.class);
 
